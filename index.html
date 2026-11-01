@@ -1,0 +1,264 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MASTERMIND</title>
+    <link rel="icon" type="image/png" href="img/icona.jpg">
+    <link rel="stylesheet" href="mastermind.css">
+</head>
+<body>
+
+    <!-- SCHERMATA MENU INIZIALE -->
+    <div id="screen-menu" class="screen active">
+        <div class="menu-card glass-panel">
+            <h1 class="game-title" data-text="MASTERMIND">MASTERMIND</h1>
+            <div class="menu-group">
+                <label>Modalità di Gioco:</label>
+                <div class="toggle-buttons">
+                    <button type="button" id="btn-mode-single" class="btn-toggle active" onclick="setMode('single')">Singolo</button>
+                    <button type="button" id="btn-mode-multi" class="btn-toggle" onclick="setMode('multi')">Multiplayer</button>
+                </div>
+            </div>
+
+            <!-- Configurazione Giocatori -->
+            <div id="single-player-setup" class="setup-box">
+                <div class="form-group">
+                    <label for="single-player-name">Nome Giocatore:</label>
+                    <input type="text" id="single-player-name" value="Giocatore 1" maxlength="15">
+                </div>
+            </div>
+
+            <div id="multi-player-setup" class="setup-box hidden">
+                <div class="form-group">
+                    <label for="num-players">Numero Giocatori:</label>
+                    <select id="num-players" onchange="renderMultiPlayerInputs()">
+                        <option value="2">2 Giocatori</option>
+                        <option value="3">3 Giocatori</option>
+                        <option value="4">4 Giocatori</option>
+                    </select>
+                </div>
+                <div id="multi-player-inputs" class="inputs-grid"></div>
+            </div>
+
+            <div class="menu-group">
+                <label>Difficoltà:</label>
+                <div class="difficulty-options">
+                    <button type="button" id="diff-easy" class="btn-diff active" onclick="setDifficulty('easy')">
+                        <span class="diff-title">Facile</span>
+                        <span class="diff-sub" id="sub-easy">4 Caselle • 5 Colori • 10 Tentativi</span>
+                    </button>
+                    <button type="button" id="diff-normal" class="btn-diff" onclick="setDifficulty('normal')">
+                        <span class="diff-title">Normale</span>
+                        <span class="diff-sub" id="sub-normal">4 Caselle • 6 Colori • 10 Tentativi</span>
+                    </button>
+                    <button type="button" id="diff-hard" class="btn-diff" onclick="setDifficulty('hard')">
+                        <span class="diff-title">Difficile</span>
+                        <span class="diff-sub" id="sub-hard">5 Caselle • 8 Colori • 10 Tentativi</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="menu-actions">
+                <button class="btn btn-primary btn-large" onclick="startGame()">NUOVA PARTITA</button>
+                <div class="secondary-actions">
+                    <button class="btn btn-secondary" onclick="showScreen('screen-leaderboard')">🏆 Classifica</button>
+                    <button class="btn btn-secondary" onclick="showScreen('screen-rules')">📜 Regole</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCHERMATA REGOLE -->
+    <div id="screen-rules" class="screen">
+        <div class="glass-panel modal-panel">
+            <h2>Regole del Gioco</h2>
+            <div class="rules-content">
+                <h3>Scopo del Gioco</h3>
+                <p>Indovinare la combinazione segreta di colori generata dal computer nel minor numero di tentativi e nel minor tempo possibile.</p>
+
+                <h3>Indicazioni e Indizi</h3>
+                <ul>
+                    <li><strong style="color:#ff0000">Piolo Rosso:</strong> Colore corretto nella posizione corretta.</li>
+                    <li><strong style="color:#eee">Piolo Bianco:</strong> Colore presente nella combinazione ma in posizione sbagliata.</li>
+                    <li><strong>Vuoto:</strong> Colore non presente nella combinazione.</li>
+                </ul>
+
+                <h3>Modalità Multiplayer (A Turni / Giri)</h3>
+                <p>I giocatori affrontano a turno una combinazione segreta generata dal computer. Alla fine di ogni turno, tentativi e tempo vengono sommati al totale personale del giocatore.</p>
+                <p>Se la somma totale dei tentativi supera la soglia (Facile: 20, Normale: 23, Difficile: 26), il giocatore viene eliminato dai turni successivi. La partita prosegue a giri finché tutti sono eliminati o hanno completato la sfida. Vince chi ha completato più giri totali e, a parità di giri, chi ha impiegato meno tentativi e minor tempo totale!</p>
+            </div>
+            <button class="btn btn-primary" onclick="showScreen('screen-menu')">Torna al Menu</button>
+        </div>
+    </div>
+
+    <!-- SCHERMATA CLASSIFICA -->
+    <div id="screen-leaderboard" class="screen">
+        <div class="glass-panel modal-panel leaderboard-modal">
+            <h2>🏆 Classifica Generale</h2>
+
+            <!-- Selezione Modalità -->
+            <div class="tab-buttons">
+                <button id="lb-mode-single" class="btn-tab active" onclick="setLeaderboardMode('Singolo')">Singolo Giocatore</button>
+                <button id="lb-mode-multi" class="btn-tab" onclick="setLeaderboardMode('Multiplayer')">Multiplayer</button>
+            </div>
+
+            <!-- Selezione Difficoltà -->
+            <div class="tab-buttons">
+                <button id="lb-diff-easy" class="btn-tab active" onclick="setLeaderboardDiff('easy')">Facile</button>
+                <button id="lb-diff-normal" class="btn-tab" onclick="setLeaderboardDiff('normal')">Normale</button>
+                <button id="lb-diff-hard" class="btn-tab" onclick="setLeaderboardDiff('hard')">Difficile</button>
+            </div>
+
+            <div class="table-container">
+                <table id="leaderboard-table">
+                    <thead>
+                        <tr id="leaderboard-header-row">
+                            <!-- Generato dinamicamente via JS a seconda della modalità -->
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <!-- Popolato via JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-danger" onclick="clearLeaderboard()">Cancella Statistiche</button>
+                <button class="btn btn-primary" onclick="goToMainMenu()">Torna al Menu</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCHERMATA DI GIOCO -->
+    <div id="screen-game" class="screen">
+        <header class="game-header">
+            <div class="player-info">
+                <span class="info-label">Giocatore:</span>
+                <span id="current-player-name" class="info-val">---</span>
+            </div>
+            <div class="turn-info" id="multi-turn-badge" style="display:none;">
+                <span id="current-turn-info">Giro 1</span>
+            </div>
+            <div class="timer-box">
+                <span class="info-label">Tempo Turno:</span>
+                <span id="game-timer" class="info-val">00:00</span>
+            </div>
+            <div class="controls-box">
+                <button id="btn-audio" class="btn-icon" onclick="toggleAudio()">🔊</button>
+                <button class="btn btn-small btn-secondary" onclick="confirmQuit()">Menu</button>
+            </div>
+        </header>
+
+        <main class="board-container">
+            <div class="board-3d-wrapper">
+                <div id="board-rows" class="board-rows">
+                    <!-- Righe generate dinamicamente -->
+                </div>
+
+                <!-- Tasto conferma -->
+                <div class="board-controls">
+                    <button id="btn-submit" class="btn btn-success btn-large" onclick="submitCurrentRow()" disabled>
+                        VERIFICA COMBINAZIONE
+                    </button>
+                </div>
+            </div>
+
+            <!-- Contenitore laterale: Cesto Pioli + Classifica Parziale Multiplayer -->
+            <div class="side-panels-container">
+                <!-- Pannello Classifica Parziale (visibile solo in Multiplayer) -->
+                <aside id="live-ranking-container" class="live-ranking-panel glass-panel hidden">
+                    <h3>📊 Classifica Parziale</h3>
+                    <div id="live-ranking-list" class="live-ranking-list"></div>
+                </aside>
+
+                <!-- Cesto dei Pioli -->
+                <aside class="palette-container glass-panel" style="width: 100%;">
+                    <div id="color-palette" class="palette-pegs">
+                        <!-- Generato da JS -->
+                    </div>
+                </aside>
+            </div>
+        </main>
+    </div>
+
+    <!-- MODALE CAMBIO TURNO MULTIPLAYER (SOSTITUISCE L'ALERT) -->
+    <div id="modal-turn-change" class="modal-overlay hidden">
+        <div class="glass-panel modal-panel animated-bounce">
+            <h2>Fine Turno</h2>
+            <div id="turn-change-message" class="go-message"></div>
+
+            <div class="table-container">
+                <h4>Classifica Parziale Aggiornata</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Giocatore</th>
+                            <th>Stato</th>
+                            <th>Giri</th>
+                            <th>Tentativi Tot.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="turn-ranking-body"></tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-primary btn-large" onclick="proceedToNextTurn()">Procedi al Turno Successivo</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCHERMATA DI FINE PARTITA (MODALE) -->
+    <div id="modal-gameover" class="modal-overlay hidden">
+        <div class="glass-panel modal-panel animated-bounce">
+            <h2 id="go-title">PARTITA CONCLUSA!</h2>
+            <div id="go-message" class="go-message"></div>
+
+            <div id="go-secret-box" class="secret-reveal-box">
+                <h4>Combinazione Segreta:</h4>
+                <div id="go-secret-pegs" class="pegs-row-display"></div>
+            </div>
+
+            <div id="go-stats" class="go-stats-box"></div>
+
+            <!-- Classifica Finale Multi -->
+            <div id="go-multi-leaderboard" class="table-container hidden">
+                <h4>Classifica Finale Multiplayer</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Giocatore</th>
+                            <th>Stato</th>
+                            <th>Giri</th>
+                            <th>Tentativi Tot.</th>
+                            <th>Tempo Tot.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="go-multi-body"></tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions">
+                <button class="btn btn-primary btn-large" onclick="startGame()">Nuova Partita</button>
+                <button class="btn btn-secondary" onclick="goToMainMenu()">Menu Principale</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE CONFERMA USCITA / MENU -->
+    <div id="modal-quit-confirm" class="modal-overlay hidden">
+        <div class="glass-panel modal-panel animated-bounce" style="max-width: 400px; text-align: center;">
+            <h2>Abbandona Partita</h2>
+            <p class="go-message">Sei sicuro di voler uscire? La partita in corso andrà persa.</p>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeQuitModal()">Annulla</button>
+                <button class="btn btn-danger" onclick="executeQuitToMenu()">Sì, Esci</button>
+            </div>
+        </div>
+    </div>
+    <script src="mastermind.js"></script>
+</body>
+</html>
