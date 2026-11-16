@@ -994,3 +994,33 @@ tr:nth-child(even) {
             font-size: 1.4rem;
         }
 }
+
+.row-copy-btn {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.12);
+    color: inherit;
+    border-radius: 6px;
+    padding: 2px 6px;
+    min-width: 26px;
+    height: 26px;
+    font-weight: bold;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+    .row-copy-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+    }
+
+    .row-copy-btn:active:not(:disabled) {
+        transform: scale(0.95);
+    }
+
+    .row-copy-btn:disabled {
+        border-color: transparent;
+        background: transparent;
+        opacity: 0.5;
+        cursor: default;
+    }

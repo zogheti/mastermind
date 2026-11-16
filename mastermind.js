@@ -37,6 +37,7 @@ let gameState = {
     currentAttemptInRound: 0,
     maxAttemptsPerRound: 10,
     currentRowPegs: [],
+    playedRows: [],
     selectedColorId: null,
 
     // Timer
@@ -105,6 +106,40 @@ function toggleAudio() {
     document.getElementById('btn-audio').innerText = gameState.audioEnabled ? '🔊' : '🔇';
 }
 
+function toggleFullscreen() {
+    const elem = document.documentElement;
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+
+    if (!isFullscreen) {
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(err => console.warn("Errore schermo intero:", err));
+        } else if (elem.webkitRequestFullscreen) {
+            elem.webkitRequestFullscreen();
+        } else if (elem.msRequestFullscreen) {
+            elem.msRequestFullscreen();
+        }
+    } else {
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+    }
+}
+
+function updateFullscreenIcon() {
+    const btn = document.getElementById('btn-fullscreen');
+    if (!btn) return;
+    const isFullscreen = document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement;
+    btn.innerText = isFullscreen ? '🗗' : '⛶';
+    btn.title = isFullscreen ? 'Esci da Schermo Intero' : 'Schermo Intero';
+}
+
+document.addEventListener('fullscreenchange', updateFullscreenIcon);
+document.addEventListener('webkitfullscreenchange', updateFullscreenIcon);
+
 /* ==========================================================================
    INIZIALIZZAZIONE E NAVIGAZIONE SCHERMATE
    ========================================================================== */
@@ -130,15 +165,12 @@ function setMode(mode) {
     document.getElementById('single-player-setup').classList.toggle('hidden', mode !== 'single');
     document.getElementById('multi-player-setup').classList.toggle('hidden', mode !== 'multi');
 
-    // Aggiorna dinamicamente i sottotitoli delle difficoltà in base alla modalità
     updateDifficultyLabels();
 }
 
 function updateDifficultyLabels() {
     const isMulti = gameState.mode === 'multi';
 
-    // Limiti multiplayer: Facile 20, Normale 23, Difficile 26
-    // Singolo: fisso a 10 per tutte
     document.getElementById('sub-easy').innerText = isMulti
         ? '4 Caselle • 5 Colori • 10 Tentativi • Eliminazione a 20'
         : '4 Caselle • 5 Colori • 10 Tentativi';
@@ -148,7 +180,7 @@ function updateDifficultyLabels() {
         : '4 Caselle • 6 Colori • 10 Tentativi';
 
     document.getElementById('sub-hard').innerText = isMulti
-        ? '5 Caselle • 8 Colori • • 10 Tentativi • Eliminazione a 26'
+        ? '5 Caselle • 8 Colori • 10 Tentativi • Eliminazione a 26'
         : '5 Caselle • 8 Colori • 10 Tentativi';
 }
 
@@ -183,7 +215,6 @@ function startGame() {
     const settings = DIFFICULTY_SETTINGS[gameState.difficulty];
     gameState.maxAttemptsPerRound = settings.maxAttemptsPerRound;
 
-    // Inizializzazione Giocatori
     gameState.players = [];
     if (gameState.mode === 'single') {
         const name = document.getElementById('single-player-name').value.trim() || 'Giocatore 1';
@@ -217,13 +248,14 @@ function startGame() {
     setupNewTurn();
     showScreen('screen-game');
 }
-// Funzione per tornare al menu principale dalla schermata di fine partita
+
 function goToMainMenu() {
     document.getElementById('modal-gameover').classList.add('hidden');
     document.getElementById('modal-turn-change').classList.add('hidden');
     stopTimer();
     showScreen('screen-menu');
 }
+
 function generateSecretCode(slots, colorCount) {
     const code = [];
     for (let i = 0; i < slots; i++) {
@@ -239,9 +271,9 @@ function setupNewTurn() {
 
     gameState.secretCode = generateSecretCode(settings.slots, settings.colors);
     gameState.currentAttemptInRound = 0;
+    gameState.playedRows = [];
     gameState.selectedColorId = null;
 
-    // Aggiornamento Header UI
     document.getElementById('current-player-name').innerText = player.name;
     if (gameState.mode === 'multi') {
         document.getElementById('current-turn-info').innerText =
@@ -263,7 +295,6 @@ function updateLiveRankingSidebar() {
     const container = document.getElementById('live-ranking-list');
     container.innerHTML = '';
 
-    // Ordina i giocatori per la classifica parziale in-game
     const sorted = [...gameState.players].sort((a, b) => {
         if (a.roundsCompleted !== b.roundsCompleted) return b.roundsCompleted - a.roundsCompleted;
         if (a.totalAttempts !== b.totalAttempts) return a.totalAttempts - b.totalAttempts;
@@ -345,7 +376,7 @@ function selectPaletteColor(colorId, element) {
     } else {
         gameState.selectedColorId = colorId;
         element.classList.add('selected');
-        AudioEngine.playPegSelect(); // <-- ATTIVA IL SUONO QUI
+        AudioEngine.playPegSelect();
     }
 }
 
@@ -361,9 +392,13 @@ function renderBoard() {
         rowDiv.className = `board-row ${r === 0 ? 'active-row' : ''}`;
         rowDiv.dataset.rowIndex = r;
 
-        const numDiv = document.createElement('div');
-        numDiv.className = 'row-number';
-        numDiv.innerText = r + 1;
+        const numBtn = document.createElement('button');
+        numBtn.type = 'button';
+        numBtn.className = 'row-number row-copy-btn';
+        numBtn.innerText = r + 1;
+        numBtn.title = `Copia la combinazione della riga ${r + 1} nella riga attiva`;
+        numBtn.disabled = true;
+        numBtn.addEventListener('click', () => copyRowToActive(r));
 
         const slotsDiv = document.createElement('div');
         slotsDiv.className = 'row-slots';
@@ -390,7 +425,7 @@ function renderBoard() {
             feedbackDiv.appendChild(fbPeg);
         }
 
-        rowDiv.appendChild(numDiv);
+        rowDiv.appendChild(numBtn);
         rowDiv.appendChild(slotsDiv);
         rowDiv.appendChild(feedbackDiv);
         container.appendChild(rowDiv);
@@ -430,6 +465,17 @@ function setPegInSlot(slotIndex, colorId) {
     }
 
     updateSubmitButtonState();
+}
+
+function copyRowToActive(rowIndex) {
+    const savedPegs = gameState.playedRows[rowIndex];
+    if (!savedPegs) return;
+
+    savedPegs.forEach((colorId, slotIndex) => {
+        setPegInSlot(slotIndex, colorId);
+    });
+
+    AudioEngine.playPegPlace();
 }
 
 function updateSubmitButtonState() {
@@ -488,6 +534,13 @@ function submitCurrentRow() {
         fbPegs[fbIndex++].classList.add('white');
     }
 
+    // Salva i colori giocati in questa riga e abilita il pulsante di copia
+    gameState.playedRows[gameState.currentAttemptInRound] = [...gameState.currentRowPegs];
+    const copyBtn = activeRow.querySelector('.row-copy-btn');
+    if (copyBtn) {
+        copyBtn.disabled = false;
+    }
+
     gameState.currentAttemptInRound++;
     const isCorrect = feedback.black === settings.slots;
 
@@ -495,14 +548,12 @@ function submitCurrentRow() {
         stopTimer();
         const player = gameState.players[gameState.currentPlayerIndex];
 
-        // Aggiornamento statistiche cumulative del giocatore
         player.totalAttempts += gameState.currentAttemptInRound;
         player.totalTime += gameState.currentTurnSeconds;
         if (isCorrect) {
             player.roundsCompleted++;
         }
 
-        // Controllo eliminazione basato sul limite totale dei tentativi
         if (player.totalAttempts >= settings.eliminationLimit) {
             player.eliminated = true;
         }
@@ -586,18 +637,15 @@ function handleTurnTransition() {
         document.getElementById('go-multi-leaderboard').classList.add('hidden');
         modal.classList.remove('hidden');
     } else {
-        // Multiplayer
         let activePlayers = gameState.players.filter(p => !p.eliminated);
 
         if (activePlayers.length === 0) {
             endGameMulti();
         } else {
-            // Mostra la modale HTML di cambio turno invece dell'alert del browser
             const currentPlayer = gameState.players[gameState.currentPlayerIndex];
             const msgEl = document.getElementById('turn-change-message');
             msgEl.innerHTML = `Turno completato per <strong>${currentPlayer.name}</strong> (${gameState.currentAttemptInRound} tentativi in questo turno).<br>${currentPlayer.eliminated ? '⚠️ <strong>Il giocatore ha superato il limite ed è stato eliminato!</strong>' : ''}`;
 
-            // Popola la tabella di classifica parziale nella modale
             const body = document.getElementById('turn-ranking-body');
             body.innerHTML = '';
 
@@ -624,11 +672,9 @@ function handleTurnTransition() {
     }
 }
 
-// Funzione chiamata dal pulsante della modale di cambio turno
 function proceedToNextTurn() {
     document.getElementById('modal-turn-change').classList.add('hidden');
 
-    // Avanza all'indice del prossimo giocatore non eliminato
     do {
         gameState.currentPlayerIndex = (gameState.currentPlayerIndex + 1) % gameState.players.length;
         if (gameState.currentPlayerIndex === 0) {
@@ -636,7 +682,6 @@ function proceedToNextTurn() {
         }
     } while (gameState.players[gameState.currentPlayerIndex].eliminated);
 
-    // Controlla se dopo il passaggio sono rimasti giocatori attivi
     const activePlayers = gameState.players.filter(p => !p.eliminated);
     if (activePlayers.length === 0) {
         endGameMulti();
@@ -652,7 +697,6 @@ function endGameMulti() {
         return a.totalTime - b.totalTime;
     });
 
-    // MODIFICA: Salva i risultati di TUTTI i giocatori nella classifica multiplayer
     rankedPlayers.forEach((p) => {
         if (p.roundsCompleted > 0 || p.totalAttempts > 0) {
             saveResultToLeaderboard(
@@ -708,17 +752,14 @@ function renderSecretReveal(secretCode) {
    GESTIONE MODALE DI USCITA / MENU
    ========================================================================== */
 function confirmQuit() {
-    // Mostra la modale HTML invece del confirm() del browser
     document.getElementById('modal-quit-confirm').classList.remove('hidden');
 }
 
 function closeQuitModal() {
-    // Chiude la modale senza uscire
     document.getElementById('modal-quit-confirm').classList.add('hidden');
 }
 
 function executeQuitToMenu() {
-    // Conferma l'uscita, chiude la modale, ferma il timer e torna al menu
     document.getElementById('modal-quit-confirm').classList.add('hidden');
     stopTimer();
     showScreen('screen-menu');
@@ -775,7 +816,6 @@ function renderLeaderboard(diff) {
     const leaderboard = getLeaderboardData();
     const rawList = leaderboard[diff] || [];
 
-    // Filtra in base alla modalità selezionata (Singolo vs Multiplayer)
     const list = rawList.filter(item => {
         if (lbCurrentMode === 'Singolo') {
             return item.mode === 'Singolo';
@@ -788,7 +828,6 @@ function renderLeaderboard(diff) {
     const body = document.getElementById('leaderboard-body');
     body.innerHTML = '';
 
-    // Imposta le intestazioni della tabella dinamicamente
     if (lbCurrentMode === 'Singolo') {
         headerRow.innerHTML = `
             <th>#</th>
@@ -826,7 +865,6 @@ function renderLeaderboard(diff) {
                 <td>${item.date}</td>
             `;
         } else {
-            // Estrae il numero di giri/partite dalla stringa mode (es. "Multiplayer (2 giri)" -> "2 Partite" o simile)
             let partiteText = "Partita";
             const match = item.mode.match(/\d+/);
             if (match) {
