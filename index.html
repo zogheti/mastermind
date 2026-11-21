@@ -3,25 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MASTERMIND</title>
+    <title>MIND BREAKER</title>
     <link rel="icon" type="image/png" href="img/icona.jpg">
-    <link rel="stylesheet" href="mastermind.css">
+    <link rel="stylesheet" href="mind-breaker.css">
+    <!-- Firebase SDK Compat (funziona direttamente nel browser senza bundler) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
 
     <!-- SCHERMATA MENU INIZIALE -->
     <div id="screen-menu" class="screen active">
         <div class="menu-card glass-panel">
-            <h1 class="game-title" data-text="MASTERMIND">MASTERMIND</h1>
+            <h1 class="game-title">MIND BREAKER</h1>
             <div class="menu-group">
                 <label>Modalità di Gioco:</label>
                 <div class="toggle-buttons">
-                    <button type="button" id="btn-mode-single" class="btn-toggle active" onclick="setMode('single')">Singolo</button>
-                    <button type="button" id="btn-mode-multi" class="btn-toggle" onclick="setMode('multi')">Multiplayer</button>
+                    <button type="button" id="btn-mode-single" class="btn-toggle active" onclick="setMode('single')">Single Player</button>
+                    <button type="button" id="btn-mode-multi" class="btn-toggle" onclick="setMode('multi')">Multiplayer Locale</button>
+                    <button type="button" id="btn-mode-online" class="btn-toggle" onclick="setMode('online')">Multiplayer Online</button>
                 </div>
             </div>
 
-            <!-- Configurazione Giocatori -->
+            <!-- Configurazione Giocatore Singolo -->
             <div id="single-player-setup" class="setup-box">
                 <div class="form-group">
                     <label for="single-player-name">Nome Giocatore:</label>
@@ -29,6 +33,7 @@
                 </div>
             </div>
 
+            <!-- Configurazione Multiplayer Locale -->
             <div id="multi-player-setup" class="setup-box hidden">
                 <div class="form-group">
                     <label for="num-players">Numero Giocatori:</label>
@@ -39,6 +44,37 @@
                     </select>
                 </div>
                 <div id="multi-player-inputs" class="inputs-grid"></div>
+            </div>
+
+            <!-- Configurazione Multiplayer Online -->
+            <div id="online-player-setup" class="setup-box hidden">
+                <div class="form-group">
+                    <label for="online-player-name">Il Tuo Nome:</label>
+                    <input type="text" id="online-player-name" placeholder="Inserisci il tuo nome..." maxlength="15">
+                </div>
+
+                <div class="form-group">
+                    <label>Tipo Partita Online:</label>
+                    <div class="toggle-buttons">
+                        <button type="button" id="btn-online-sfida" class="btn-toggle active" onclick="setOnlineSubMode('sfida')">⚔️ Sfida</button>
+                        <button type="button" id="btn-online-classica" class="btn-toggle" onclick="setOnlineSubMode('classica')">🎭 Versione Classica</button>
+                    </div>
+                </div>
+
+                <div class="online-room-actions">
+                    <button type="button" class="btn btn-primary" onclick="createOnlineRoom()">Crea Stanza</button>
+                </div>
+
+                <div class="online-rooms-browser">
+                    <div class="online-rooms-header">
+                        <span>Stanze Attive</span>
+                    </div>
+                    <div id="online-active-rooms-list" class="online-rooms-list">
+                        <div class="online-rooms-empty">Ricerca stanze in corso...</div>
+                    </div>
+                </div>
+
+                <p id="online-error-msg" class="online-error hidden"></p>
             </div>
 
             <div class="menu-group">
@@ -60,11 +96,44 @@
             </div>
 
             <div class="menu-actions">
-                <button class="btn btn-primary btn-large" onclick="startGame()">NUOVA PARTITA</button>
+                <button id="btn-start-local" class="btn btn-primary btn-large" onclick="startGame()">NUOVA PARTITA</button>
                 <div class="secondary-actions">
                     <button class="btn btn-secondary" onclick="showScreen('screen-leaderboard')">🏆 Classifica</button>
                     <button class="btn btn-secondary" onclick="showScreen('screen-rules')">📜 Regole</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SCHERMATA LOBBY ATTESA ONLINE -->
+    <div id="screen-online-lobby" class="screen">
+        <div class="glass-panel modal-panel" style="text-align: center;">
+            <h2>Stanza Online</h2>
+            <div class="room-code-banner">
+                <span>Codice Stanza:</span>
+                <strong id="lobby-room-code">----</strong>
+            </div>
+            <p id="lobby-mode-info" class="go-message"></p>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Giocatore</th>
+                            <th>Ruolo</th>
+                            <th>Stato</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lobby-players-list"></tbody>
+                </table>
+            </div>
+
+            <p id="lobby-wait-text" class="go-message">In attesa degli altri giocatori...</p>
+
+            <div class="modal-actions">
+                <button id="btn-start-online-match" class="btn btn-primary btn-large hidden" onclick="hostStartOnlineMatch()">AVVIA PARTITA</button>
+                <button class="btn btn-danger" onclick="leaveOnlineRoom()">Esci dalla Stanza</button>
             </div>
         </div>
     </div>
@@ -75,7 +144,7 @@
             <h2>Regole del Gioco</h2>
             <div class="rules-content">
                 <h3>Scopo del Gioco</h3>
-                <p>Indovinare la combinazione segreta di colori generata dal computer nel minor numero di tentativi e nel minor tempo possibile.</p>
+                <p>Indovinare la combinazione segreta di colori nel minor numero di tentativi e nel minor tempo possibile.</p>
 
                 <h3>Indicazioni e Indizi</h3>
                 <ul>
@@ -84,9 +153,11 @@
                     <li><strong>Vuoto:</strong> Colore non presente nella combinazione.</li>
                 </ul>
 
-                <h3>Modalità Multiplayer (A Turni / Giri)</h3>
-                <p>I giocatori affrontano a turno una combinazione segreta generata dal computer. Alla fine di ogni turno, tentativi e tempo vengono sommati al totale personale del giocatore.</p>
-                <p>Se la somma totale dei tentativi supera la soglia (Facile: 20, Normale: 23, Difficile: 26), il giocatore viene eliminato dai turni successivi. La partita prosegue a giri finché tutti sono eliminati o hanno completato la sfida. Vince chi ha completato più giri totali e, a parità di giri, chi ha impiegato meno tentativi e minor tempo totale!</p>
+                <h3>Multiplayer &amp; Multiplayer Online (Sfida)</h3>
+                <p>I giocatori affrontano la combinazione segreta generata dal sistema. Online nella modalità <strong>Sfida</strong> tutti affrontano lo stesso codice contemporaneamente e al termine della manche si attende che tutti finiscano prima del giro successivo.</p>
+
+                <h3>Multiplayer Online (Versione Classica)</h3>
+                <p>Sfida 1 contro 1: la Ruota della Fortuna decide chi inizia (chi ottiene il <strong>Rosso</strong>). Chi ha il rosso sceglie il codice segreto e valuta manualmente ogni tentativo dell'avversario assegnando i pioli rossi e bianchi!</p>
             </div>
             <button class="btn btn-primary" onclick="showScreen('screen-menu')">Torna al Menu</button>
         </div>
@@ -95,36 +166,24 @@
     <!-- SCHERMATA CLASSIFICA -->
     <div id="screen-leaderboard" class="screen">
         <div class="glass-panel modal-panel leaderboard-modal">
-            <h2>🏆 Classifica Generale</h2>
+            <h2>🏆 Classifica Online</h2>
 
-            <!-- Selezione Modalità -->
             <div class="tab-buttons">
-                <button id="lb-mode-single" class="btn-tab active" onclick="setLeaderboardMode('Singolo')">Singolo Giocatore</button>
-                <button id="lb-mode-multi" class="btn-tab" onclick="setLeaderboardMode('Multiplayer')">Multiplayer</button>
+                <button id="lb-cat-classica" class="btn-tab active" onclick="setLeaderboardCategory('classica')">Classica</button>
+                <button id="lb-cat-sfida" class="btn-tab" onclick="setLeaderboardCategory('sfida')">Sfida</button>
             </div>
 
-            <!-- Selezione Difficoltà -->
             <div class="tab-buttons">
                 <button id="lb-diff-easy" class="btn-tab active" onclick="setLeaderboardDiff('easy')">Facile</button>
-                <button id="lb-diff-normal" class="btn-tab" onclick="setLeaderboardDiff('normal')">Normale</button>
+                <button id="lb-diff-normal" class="btn-tab" onclick="setLeaderboardDiff('normal')">Medio</button>
                 <button id="lb-diff-hard" class="btn-tab" onclick="setLeaderboardDiff('hard')">Difficile</button>
             </div>
 
-            <div class="table-container">
-                <table id="leaderboard-table">
-                    <thead>
-                        <tr id="leaderboard-header-row">
-                            <!-- Generato dinamicamente via JS a seconda della modalità -->
-                        </tr>
-                    </thead>
-                    <tbody id="leaderboard-body">
-                        <!-- Popolato via JS -->
-                    </tbody>
-                </table>
+            <div id="leaderboard-groups-container" class="lb-groups-container">
+                <div class="online-rooms-empty">Caricamento classifica...</div>
             </div>
 
             <div class="modal-actions">
-                <button class="btn btn-danger" onclick="clearLeaderboard()">Cancella Statistiche</button>
                 <button class="btn btn-primary" onclick="goToMainMenu()">Torna al Menu</button>
             </div>
         </div>
@@ -151,39 +210,107 @@
             </div>
         </header>
 
+        <!-- BARRA CODICE SEGRETO (VISIBILE IN VERSIONE CLASSICA ONLINE) -->
+
         <main class="board-container">
             <div class="board-3d-wrapper">
+                <!-- Indicatore di stato rapido per la Versione Classica -->
+                <div id="classic-status-banner" class="classic-status-banner hidden">
+                    <span id="classic-status-icon" class="status-pulse">⏳</span>
+                    <span id="classic-status-text">In attesa...</span>
+                </div>
                 <div id="board-rows" class="board-rows">
                     <!-- Righe generate dinamicamente -->
                 </div>
 
-                <!-- Tasto conferma -->
-                <div class="board-controls">
+                <!-- Riga "0" (Codice Segreto Versione Classica) in fondo alla plancia, sopra i controlli -->
+                <div id="classic-secret-banner" class="classic-secret-row hidden" data-secret-row="0">
+                    <span class="row-number">0</span>
+                    <div id="classic-secret-slots" class="row-slots"></div>
+                    <div id="classic-secret-feedback" class="feedback-grid">
+                        <div class="feedback-peg"></div>
+                        <div class="feedback-peg"></div>
+                        <div class="feedback-peg"></div>
+                        <div class="feedback-peg"></div>
+                    </div>
+                    <button id="btn-confirm-secret-code" class="btn btn-success btn-small hidden" onclick="confirmCodemakerSecret()" disabled>OK</button>
+                </div>
+
+                <!-- Tasto conferma tentativo (Codebreaker / Locale) -->
+                <div class="board-controls" id="codebreaker-controls">
                     <button id="btn-submit" class="btn btn-success btn-large" onclick="submitCurrentRow()" disabled>
                         VERIFICA COMBINAZIONE
                     </button>
                 </div>
-            </div>
 
-            <!-- Contenitore laterale: Cesto Pioli + Classifica Parziale Multiplayer -->
+                <!-- Controlli Codemaker (Versione Classica Online) -->
+                <div class="board-controls hidden" id="codemaker-controls">
+                    <div class="codemaker-feedback-bar">
+                        <button type="button" class="btn-fb-circle btn-fb-red" title="Aggiungi Piolo Rosso" onclick="addCodemakerFeedbackPeg('black')">+</button>
+                        <button type="button" class="btn-fb-circle btn-fb-white" title="Aggiungi Piolo Bianco" onclick="addCodemakerFeedbackPeg('white')">+</button>
+                        <button type="button" class="btn-small btn-secondary" onclick="clearCodemakerFeedbackPegs()">Pulisci</button>
+                        <button type="button" id="btn-send-feedback" class="btn btn-primary btn-small" onclick="submitCodemakerFeedback()" disabled>INVIA INDIZI</button>
+                    </div>
+                </div>
+            </div>            <!-- Contenitore laterale: Cesto Pioli + Classifica Parziale Multiplayer -->
             <div class="side-panels-container">
-                <!-- Pannello Classifica Parziale (visibile solo in Multiplayer) -->
                 <aside id="live-ranking-container" class="live-ranking-panel glass-panel hidden">
                     <h3>📊 Classifica Parziale</h3>
                     <div id="live-ranking-list" class="live-ranking-list"></div>
                 </aside>
 
-                <!-- Cesto dei Pioli -->
                 <aside class="palette-container glass-panel" style="width: 100%;">
-                    <div id="color-palette" class="palette-pegs">
-                        <!-- Generato da JS -->
-                    </div>
+                    <div id="color-palette" class="palette-pegs"></div>
                 </aside>
             </div>
         </main>
     </div>
 
-    <!-- MODALE CAMBIO TURNO MULTIPLAYER (SOSTITUISCE L'ALERT) -->
+    <!-- POPUP RUOTA DELLA FORTUNA (VERSIONE CLASSICA ONLINE) -->
+    <div id="modal-wheel" class="modal-overlay hidden">
+        <div class="glass-panel modal-panel animated-bounce" style="max-width: 440px; text-align: center;">
+            <h2>🎡 Sorteggio Ruoli</h2>
+            <p class="go-message">Chi ottiene il <strong>ROSSO</strong> sceglie il codice segreto!</p>
+            <div class="wheel-wrapper">
+                <div class="wheel-pointer">▼</div>
+                <div id="fortune-wheel" class="fortune-wheel"></div>
+            </div>
+            <p id="wheel-result-text" class="go-message" style="font-weight:bold; min-height: 28px;">Girando la ruota...</p>
+        </div>
+    </div>
+
+    <!-- MODALE ATTESA FINE MANCHE ONLINE (SFIDA) -->
+    <div id="modal-online-wait" class="modal-overlay hidden">
+        <div class="glass-panel modal-panel animated-bounce">
+            <h2>Manche Completata!</h2>
+            <div id="online-wait-message" class="go-message">In attesa che gli altri giocatori completino il giro...</div>
+
+            <div class="table-container">
+                <h4>Stato Giocatori nel Round</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Pos</th>
+                            <th>Giocatore</th>
+                            <th>Riga Round</th>
+                            <th>Stato Manche</th>
+                            <th>Giri</th>
+                            <th>Tentativi Tot.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="online-wait-ranking-body"></tbody>
+                </table>
+            </div>
+
+            <div class="modal-actions">
+                <button id="btn-start-next-online-round" class="btn btn-primary btn-large hidden" onclick="hostStartNextOnlineRound()">
+                    🚀 AVVIA PROSSIMO ROUND
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODALE CAMBIO TURNO MULTIPLAYER LOCALE -->
     <div id="modal-turn-change" class="modal-overlay hidden">
         <div class="glass-panel modal-panel animated-bounce">
             <h2>Fine Turno</h2>
@@ -224,9 +351,8 @@
 
             <div id="go-stats" class="go-stats-box"></div>
 
-            <!-- Classifica Finale Multi -->
             <div id="go-multi-leaderboard" class="table-container hidden">
-                <h4>Classifica Finale Multiplayer</h4>
+                <h4>Classifica Finale</h4>
                 <table>
                     <thead>
                         <tr>
@@ -234,7 +360,6 @@
                             <th>Giocatore</th>
                             <th>Stato</th>
                             <th>Giri</th>
-                            <th>Tentativi Tot.</th>
                             <th>Tempo Tot.</th>
                         </tr>
                     </thead>
@@ -243,7 +368,10 @@
             </div>
 
             <div class="modal-actions">
-                <button class="btn btn-primary btn-large" onclick="startGame()">Nuova Partita</button>
+                <button id="btn-start-classic-round2" class="btn btn-primary btn-large hidden" onclick="hostStartClassicRound2()">
+                    🔄 Avvia Round 2
+                </button>
+                <button id="btn-go-restart" class="btn btn-primary btn-large" onclick="handleRestartAfterGameOver()">Nuova Partita</button>
                 <button class="btn btn-secondary" onclick="goToMainMenu()">Menu Principale</button>
             </div>
         </div>
@@ -260,6 +388,7 @@
             </div>
         </div>
     </div>
-    <script src="mastermind.js"></script>
+
+    <script src="mind-breaker.js"></script>
 </body>
 </html>
